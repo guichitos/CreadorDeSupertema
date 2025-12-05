@@ -3,6 +3,7 @@ from .fonts import BuildFontSet
 from .theme_builder import BuildThemeDefinition
 from .theme_writer import WriteThemeFile
 from .super_theme_builder import BuildSuperTheme
+from .tkinter_selector import PromptThemeSelection
 
 __all__ = [
     "BuildColorPalette",
@@ -11,4 +12,5 @@ __all__ = [
     "BuildThemeDefinition",
     "WriteThemeFile",
     "BuildSuperTheme",
+    "PromptThemeSelection",
 ]
