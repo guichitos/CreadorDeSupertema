@@ -42,7 +42,12 @@ def BuildSuperTheme(BaseThemeArchive: Path, VariantThemeArchive: Path, OutputArc
         BaseThemeXmlPath = BaseExtractPath / "theme" / "theme" / "theme1.xml"
         BaseIdentifiers = EnsureThemeFamily(BaseThemeXmlPath, "Principal")
         VariantThemeXmlPath = VariantDestinationPath / "theme" / "theme" / "theme1.xml"
-        VariantIdentifiers = EnsureThemeFamily(VariantThemeXmlPath, "Variant 1", ForceNewIdentifiers=True)
+        VariantIdentifiers = EnsureThemeFamily(
+            VariantThemeXmlPath,
+            "Variant 1",
+            ForceNewIdentifiers=True,
+            OverrideThemeId=BaseIdentifiers.ThemeId,
+        )
         ThemeVariantRelationshipPaths = [
             ThemeVariantsPath / "_rels" / "themeVariantManager.xml.rels",
             VariantDestinationPath / "_rels" / "themeVariantManager.xml.rels",

@@ -49,7 +49,12 @@ def _FindExistingThemeFamily(ExtensionList: ElementTree.Element) -> Optional[The
     return None
 
 
-def EnsureThemeFamily(ThemeXmlPath: Path, ThemeName: str, ForceNewIdentifiers: bool = False) -> ThemeFamilyIdentifiers:
+def EnsureThemeFamily(
+    ThemeXmlPath: Path,
+    ThemeName: str,
+    ForceNewIdentifiers: bool = False,
+    OverrideThemeId: Optional[str] = None,
+) -> ThemeFamilyIdentifiers:
     _RegisterNamespaces()
     DocumentTree = ElementTree.parse(ThemeXmlPath)
     RootElement = DocumentTree.getroot()
@@ -59,7 +64,7 @@ def EnsureThemeFamily(ThemeXmlPath: Path, ThemeName: str, ForceNewIdentifiers: b
     ExistingIdentifiers = _FindExistingThemeFamily(ExtensionList)
     if ExistingIdentifiers is not None and not ForceNewIdentifiers:
         return ExistingIdentifiers
-    ThemeId = f"{{{str(uuid4()).upper()}}}"
+    ThemeId = OverrideThemeId if OverrideThemeId is not None else f"{{{str(uuid4()).upper()}}}"
     ThemeVid = f"{{{str(uuid4()).upper()}}}"
     ThemeFamilyElement = ElementTree.Element(f"{{{THM15_NAMESPACE}}}themeFamily")
     ThemeFamilyElement.set("name", ThemeName)
