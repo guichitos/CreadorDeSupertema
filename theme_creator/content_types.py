@@ -59,7 +59,7 @@ def UpdateContentTypesForVariant(ContentTypesPath: Path, VariantName: str) -> No
     for Index in range(1, 10):
         _AppendOverride(TypeRoot, f"{VariantPrefix}/slideLayouts/slideLayout{Index}.xml", "application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml")
     _AppendOverride(TypeRoot, f"{VariantPrefix}/slideMasters/slideMaster1.xml", "application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml")
-    _AppendOverride(TypeRoot, f"{VariantPrefix}/theme/theme/theme1.xml", "application/vnd.openxmlformats-officedocument.theme+xml")
-    _AppendOverride(TypeRoot, f"{VariantPrefix}/theme/theme/themeManager.xml", "application/vnd.openxmlformats-officedocument.themeManager+xml")
+    _AppendOverride(TypeRoot, f"{VariantPrefix}/theme/theme1.xml", "application/vnd.openxmlformats-officedocument.theme+xml")
+    _AppendOverride(TypeRoot, f"{VariantPrefix}/theme/themeManager.xml", "application/vnd.openxmlformats-officedocument.themeManager+xml")
     _AppendOverride(TypeRoot, "/themeVariants/themeVariantManager.xml", "application/vnd.ms-office.themeVariantManager+xml")
     DocumentTree.write(ContentTypesPath, encoding="utf-8", xml_declaration=True)
