@@ -29,7 +29,15 @@ def _AppendDefault(TypeRoot: ElementTree.Element, Extension: str, ContentType: s
     DefaultElement = ElementTree.Element(f"{{{CONTENT_TYPES_NAMESPACE}}}Default")
     DefaultElement.set("Extension", Extension)
     DefaultElement.set("ContentType", ContentType)
-    TypeRoot.append(DefaultElement)
+    InsertIndex = None
+    for Index, ExistingElement in enumerate(TypeRoot):
+        if ExistingElement.tag == f"{{{CONTENT_TYPES_NAMESPACE}}}Default" and ExistingElement.get("Extension") == "png":
+            InsertIndex = Index + 1
+            break
+    if InsertIndex is None:
+        TypeRoot.append(DefaultElement)
+        return
+    TypeRoot.insert(InsertIndex, DefaultElement)
 
 
 def _AppendOverride(TypeRoot: ElementTree.Element, PartName: str, ContentType: str) -> None:
