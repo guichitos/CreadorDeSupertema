@@ -55,6 +55,13 @@ def UpdateContentTypesForVariant(ContentTypesPath: Path, VariantName: str) -> No
     TypeRoot = DocumentTree.getroot()
     _AppendDefault(TypeRoot, "emf", DEFAULT_EMF_CONTENT_TYPE)
     VariantPrefix = f"/themeVariants/{VariantName}/theme"
+    OverrideTag = f"{{{CONTENT_TYPES_NAMESPACE}}}Override"
+    for OverrideElement in list(TypeRoot.findall(OverrideTag)):
+        PartName = OverrideElement.get("PartName")
+        if PartName is None:
+            continue
+        if PartName.startswith(f"{VariantPrefix}/theme/theme"):
+            TypeRoot.remove(OverrideElement)
     _AppendOverride(TypeRoot, f"{VariantPrefix}/presentation.xml", "application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml")
     for Index in range(1, 10):
         _AppendOverride(TypeRoot, f"{VariantPrefix}/slideLayouts/slideLayout{Index}.xml", "application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml")
