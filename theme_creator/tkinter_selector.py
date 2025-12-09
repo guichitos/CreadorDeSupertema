@@ -2,7 +2,7 @@
 #
 # Provides a minimal GUI-based file selection workflow using Tkinter.
 # This module is used when the user does not provide command-line arguments.
-# It opens three dialogs to select: base theme, variant theme, and output path.
+# It opens three dialogs to select: base theme, one or more variant themes, and output path.
 
 
 from pathlib import Path
@@ -35,15 +35,19 @@ def RequestBaseThemePath() -> Path:
     return _RequireSelectedPath(SelectedBase, "Primary theme selection was cancelled.")
 
 
-def RequestVariantThemePath() -> Path:
-    # Open a dialog prompting the user to select the variant theme (.thmx).
+def RequestVariantThemePaths() -> list[Path]:
+    # Open a dialog prompting the user to select one or more variant themes (.thmx).
     DialogRoot = _CreateHiddenRoot()
-    SelectedVariant = filedialog.askopenfilename(
-        title="Select the variant theme archive",
+    SelectedVariants = filedialog.askopenfilenames(
+        title="Select one or more variant theme archives",
         filetypes=[("Office Theme", "*.thmx"), ("All Files", "*.*")],
     )
     DialogRoot.destroy()
-    return _RequireSelectedPath(SelectedVariant, "Variant theme selection was cancelled.")
+
+    VariantPaths = [Path(VariantPath) for VariantPath in SelectedVariants if VariantPath]
+    if not VariantPaths:
+        raise ValueError("Variant theme selection was cancelled.")
+    return VariantPaths
 
 
 def RequestOutputPath() -> Path:
@@ -58,9 +62,9 @@ def RequestOutputPath() -> Path:
     return _RequireSelectedPath(SelectedOutput, "Output path selection was cancelled.")
 
 
-def PromptThemeSelection() -> tuple[Path, Path, Path]:
-    # High-level helper: collect base theme, variant theme, and output paths.
+def PromptThemeSelection() -> tuple[Path, list[Path], Path]:
+    # High-level helper: collect base theme, one or more variant themes, and output paths.
     BaseThemePath = RequestBaseThemePath()
-    VariantThemePath = RequestVariantThemePath()
+    VariantThemePaths = RequestVariantThemePaths()
     OutputPath = RequestOutputPath()
-    return BaseThemePath, VariantThemePath, OutputPath
+    return BaseThemePath, VariantThemePaths, OutputPath
