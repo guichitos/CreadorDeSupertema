@@ -1,21 +1,29 @@
 # super_theme_builder.py
 #
 # Module responsible for building a PowerPoint super theme. It extracts the base
-# and variant .thmx archives, validates their structure, copies the variant into
+# and variant .thmx archives, validates their structure, copies the variants into
 # the base themeVariants folder, updates themeFamily identifiers, generates the
 # required .rels and themeVariantManager.xml files, updates content types, and
-# finally recreates a valid .thmx package containing the new variant.
+# finally recreates a valid .thmx package containing the new variants.
 
 
+from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Iterable, Sequence
 import shutil
 
 from .archive_manager import ExtractArchive, CreateArchiveFromDirectory
 from .theme_family import EnsureThemeFamily
-from .content_types import UpdateContentTypesForVariant
+from .content_types import UpdateContentTypesForVariants
 from .relationships import UpdateRootRelationships, WriteThemeVariantManagerRelationships
-from .theme_variant_manager import WriteThemeVariantManager
+from .theme_variant_manager import ThemeVariantEntry, WriteThemeVariantManager
+
+
+@dataclass
+class VariantDefinition:
+    Name: str
+    ArchivePath: Path
 
 
 def _ValidateThemeSource(ExtractedPath: Path) -> None:
@@ -41,59 +49,100 @@ def _CopyVariantContent(VariantSource: Path, VariantDestination: Path) -> None:
         VariantContentTypes.unlink()
 
 
-def BuildSuperTheme(BaseThemeArchive: Path, VariantThemeArchive: Path, OutputArchive: Path, VariantName: str = "variant1") -> Path:
-    # Main workflow: extract, validate, merge variant, update identifiers,
+def _NormalizeVariantDefinitions(VariantArchives: Sequence[Path], VariantNames: Iterable[str] | None) -> list[VariantDefinition]:
+    if not VariantArchives:
+        raise ValueError("At least one variant theme archive must be provided.")
+
+    ProvidedNames = list(VariantNames or [])
+    while len(ProvidedNames) < len(VariantArchives):
+        ProvidedNames.append(f"variant{len(ProvidedNames) + 1}")
+
+    VariantDefinitions: list[VariantDefinition] = []
+    for Index, VariantArchive in enumerate(VariantArchives):
+        VariantName = ProvidedNames[Index]
+        VariantDefinitions.append(VariantDefinition(Name=VariantName, ArchivePath=VariantArchive))
+    return VariantDefinitions
+
+
+def BuildSuperTheme(
+    BaseThemeArchive: Path,
+    VariantThemeArchives: Sequence[Path],
+    OutputArchive: Path,
+    VariantNames: Iterable[str] | None = None,
+) -> Path:
+    # Main workflow: extract, validate, merge variants, update identifiers,
     # write relationships and manager files, update content types, and repackage.
+    VariantDefinitions = _NormalizeVariantDefinitions(VariantThemeArchives, VariantNames)
+
     with TemporaryDirectory() as WorkingDirectory:
         WorkingDirectoryPath = Path(WorkingDirectory)
 
-        # Extract both themes
+        # Extract base theme
         BaseExtractPath = WorkingDirectoryPath / "base"
-        VariantExtractPath = WorkingDirectoryPath / "variant"
         ExtractArchive(BaseThemeArchive, BaseExtractPath)
-        ExtractArchive(VariantThemeArchive, VariantExtractPath)
-
-        # Validate required structure
         _ValidateThemeSource(BaseExtractPath)
-        _ValidateThemeSource(VariantExtractPath)
 
-        # Copy variant into base/themeVariants/<VariantName>
+        # Extract and validate variants
+        VariantExtractPaths: list[Path] = []
+        for Index, VariantDefinition in enumerate(VariantDefinitions):
+            VariantExtractPath = WorkingDirectoryPath / f"variant_{Index}"
+            ExtractArchive(VariantDefinition.ArchivePath, VariantExtractPath)
+            _ValidateThemeSource(VariantExtractPath)
+            VariantExtractPaths.append(VariantExtractPath)
+
+        # Copy variants into base/themeVariants/<VariantName>
         ThemeVariantsPath = BaseExtractPath / "themeVariants"
-        VariantDestinationPath = ThemeVariantsPath / VariantName
-        _CopyVariantContent(VariantExtractPath, VariantDestinationPath)
+        VariantDestinationPaths: list[Path] = []
+        for VariantDefinition, VariantExtractPath in zip(VariantDefinitions, VariantExtractPaths):
+            VariantDestinationPath = ThemeVariantsPath / VariantDefinition.Name
+            _CopyVariantContent(VariantExtractPath, VariantDestinationPath)
+            VariantDestinationPaths.append(VariantDestinationPath)
 
-        # Update themeFamily identifiers for base and variant
+        # Update themeFamily identifiers for base and variants
         BaseThemeXmlPath = BaseExtractPath / "theme" / "theme" / "theme1.xml"
         BaseIdentifiers = EnsureThemeFamily(BaseThemeXmlPath, "Principal")
 
-        VariantThemeXmlPath = VariantDestinationPath / "theme" / "theme" / "theme1.xml"
-        VariantIdentifiers = EnsureThemeFamily(
-            VariantThemeXmlPath,
-            "Variant 1",
-            ForceNewIdentifiers=True,
-            OverrideThemeId=BaseIdentifiers.ThemeId,
-        )
+        VariantEntries: list[ThemeVariantEntry] = []
+        for RelationshipIndex, (VariantDefinition, VariantDestinationPath) in enumerate(
+            zip(VariantDefinitions, VariantDestinationPaths), start=2
+        ):
+            VariantThemeXmlPath = VariantDestinationPath / "theme" / "theme" / "theme1.xml"
+            VariantIdentifiers = EnsureThemeFamily(
+                VariantThemeXmlPath,
+                VariantDefinition.Name,
+                ForceNewIdentifiers=True,
+                OverrideThemeId=BaseIdentifiers.ThemeId,
+            )
 
-        # Write .rels files linking variant and manager
+            VariantEntries.append(
+                ThemeVariantEntry(
+                    Name=VariantDefinition.Name,
+                    VariantVid=VariantIdentifiers.ThemeVid,
+                    RelationshipId=f"rId{RelationshipIndex}",
+                )
+            )
+
+        VariantNamesList = [VariantEntry.Name for VariantEntry in VariantEntries]
+
+        # Write .rels files linking variants and manager
         ThemeVariantRelationshipPaths = [
             ThemeVariantsPath / "_rels" / "themeVariantManager.xml.rels",
-            VariantDestinationPath / "_rels" / "themeVariantManager.xml.rels",
-        ]
+        ] + [VariantDestinationPath / "_rels" / "themeVariantManager.xml.rels" for VariantDestinationPath in VariantDestinationPaths]
+
         for RelationshipPath in ThemeVariantRelationshipPaths:
-            WriteThemeVariantManagerRelationships(RelationshipPath, VariantName)
+            WriteThemeVariantManagerRelationships(RelationshipPath, VariantNamesList)
 
         # Write themeVariantManager.xml describing all variants
         ManagerPath = ThemeVariantsPath / "themeVariantManager.xml"
         WriteThemeVariantManager(
             ManagerPath,
             BaseIdentifiers.ThemeVid,
-            VariantIdentifiers.ThemeVid,
-            "Variant 1",
+            VariantEntries,
         )
 
         # Update [Content_Types].xml and root relationships
         ContentTypesPath = BaseExtractPath / "[Content_Types].xml"
-        UpdateContentTypesForVariant(ContentTypesPath, VariantName)
+        UpdateContentTypesForVariants(ContentTypesPath, VariantNamesList)
 
         RootRelationshipsPath = BaseExtractPath / "_rels" / ".rels"
         UpdateRootRelationships(RootRelationshipsPath)

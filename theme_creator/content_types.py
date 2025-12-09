@@ -1,10 +1,10 @@
 # content_types.py
 #
-# Updates the global [Content_Types].xml file to register all parts used by a
-# variant. PowerPoint only recognizes files declared here, so this module ensures
-# that the variant’s layouts, theme files, and themeVariantManager are listed.
-# It also adds missing default types (like EMF) when required.
-
+# Updates the global [Content_Types].xml file to register all parts used by
+# one or more variants. PowerPoint only recognizes files declared here, so this
+# module ensures that each variant’s layouts, theme files, and
+# themeVariantManager are listed. It also adds missing default types (like EMF)
+# when required.
 
 from pathlib import Path
 import xml.etree.ElementTree as ElementTree
@@ -71,7 +71,7 @@ def _AppendOverride(TypeRoot: ElementTree.Element, PartName: str, ContentType: s
     TypeRoot.append(OverrideElement)
 
 
-def UpdateContentTypesForVariant(ContentTypesPath: Path, VariantName: str) -> None:
+def UpdateContentTypesForVariants(ContentTypesPath: Path, VariantNames: list[str]) -> None:
     # Main function: ensures all necessary variant parts are registered.
     _RegisterNamespace()
 
@@ -81,34 +81,36 @@ def UpdateContentTypesForVariant(ContentTypesPath: Path, VariantName: str) -> No
     # Add missing EMF default if required.
     _AppendDefault(TypeRoot, "emf", DEFAULT_EMF_CONTENT_TYPE)
 
-    VariantPrefix = f"/themeVariants/{VariantName}/theme"
-
-    # Clean obsolete overrides for theme/theme1.xml inside the variant.
     OverrideTag = f"{{{CONTENT_TYPES_NAMESPACE}}}Override"
-    for OverrideElement in list(TypeRoot.findall(OverrideTag)):
-        PartName = OverrideElement.get("PartName")
-        if PartName is None:
-            continue
-        if PartName.startswith(f"{VariantPrefix}/theme/theme"):
-            TypeRoot.remove(OverrideElement)
 
-    # Register all expected variant parts.
-    _AppendOverride(TypeRoot, f"{VariantPrefix}/presentation.xml",
-                    "application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml")
+    for VariantName in VariantNames:
+        VariantPrefix = f"/themeVariants/{VariantName}/theme"
 
-    for Index in range(1, 10):
-        _AppendOverride(TypeRoot,
-                        f"{VariantPrefix}/slideLayouts/slideLayout{Index}.xml",
-                        "application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml")
+        # Clean obsolete overrides for theme/theme1.xml inside the variant.
+        for OverrideElement in list(TypeRoot.findall(OverrideTag)):
+            PartName = OverrideElement.get("PartName")
+            if PartName is None:
+                continue
+            if PartName.startswith(f"{VariantPrefix}/theme/theme"):
+                TypeRoot.remove(OverrideElement)
 
-    _AppendOverride(TypeRoot, f"{VariantPrefix}/slideMasters/slideMaster1.xml",
-                    "application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml")
+        # Register all expected variant parts.
+        _AppendOverride(TypeRoot, f"{VariantPrefix}/presentation.xml",
+                        "application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml")
 
-    _AppendOverride(TypeRoot, f"{VariantPrefix}/theme/theme1.xml",
-                    "application/vnd.openxmlformats-officedocument.theme+xml")
+        for Index in range(1, 10):
+            _AppendOverride(TypeRoot,
+                            f"{VariantPrefix}/slideLayouts/slideLayout{Index}.xml",
+                            "application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml")
 
-    _AppendOverride(TypeRoot, f"{VariantPrefix}/theme/themeManager.xml",
-                    "application/vnd.openxmlformats-officedocument.themeManager+xml")
+        _AppendOverride(TypeRoot, f"{VariantPrefix}/slideMasters/slideMaster1.xml",
+                        "application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml")
+
+        _AppendOverride(TypeRoot, f"{VariantPrefix}/theme/theme1.xml",
+                        "application/vnd.openxmlformats-officedocument.theme+xml")
+
+        _AppendOverride(TypeRoot, f"{VariantPrefix}/theme/themeManager.xml",
+                        "application/vnd.openxmlformats-officedocument.themeManager+xml")
 
     _AppendOverride(TypeRoot, "/themeVariants/themeVariantManager.xml",
                     "application/vnd.ms-office.themeVariantManager+xml")
