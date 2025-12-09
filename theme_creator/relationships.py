@@ -79,9 +79,9 @@ def UpdateRootRelationships(RelationshipsPath: Path) -> None:
     DocumentTree.write(RelationshipsPath, encoding="utf-8", xml_declaration=True)
 
 
-def WriteThemeVariantManagerRelationships(RelationshipsPath: Path, VariantName: str) -> None:
+def WriteThemeVariantManagerRelationships(RelationshipsPath: Path, VariantNames: list[str]) -> None:
     # Create a .rels file for each variant manager. It links both the base
-    # themeManager.xml and the variant's own themeManager.xml.
+    # themeManager.xml and every variant's own themeManager.xml.
     _RegisterNamespace()
     RelationshipsPath.parent.mkdir(parents=True, exist_ok=True)
 
@@ -91,14 +91,14 @@ def WriteThemeVariantManagerRelationships(RelationshipsPath: Path, VariantName: 
     BaseRelationship.set("Type", OFFICE_DOCUMENT_RELATIONSHIP)
     BaseRelationship.set("Target", "/theme/theme/themeManager.xml")
     BaseRelationship.set("Id", "rId1")
-
-    VariantRelationship = ElementTree.Element(f"{{{RELATIONSHIPS_NAMESPACE}}}Relationship")
-    VariantRelationship.set("Type", OFFICE_DOCUMENT_RELATIONSHIP)
-    VariantRelationship.set("Target", f"/themeVariants/{VariantName}/theme/theme/themeManager.xml")
-    VariantRelationship.set("Id", "rId2")
-
     RelationshipRoot.append(BaseRelationship)
-    RelationshipRoot.append(VariantRelationship)
+
+    for Index, VariantName in enumerate(VariantNames, start=2):
+        VariantRelationship = ElementTree.Element(f"{{{RELATIONSHIPS_NAMESPACE}}}Relationship")
+        VariantRelationship.set("Type", OFFICE_DOCUMENT_RELATIONSHIP)
+        VariantRelationship.set("Target", f"/themeVariants/{VariantName}/theme/theme/themeManager.xml")
+        VariantRelationship.set("Id", f"rId{Index}")
+        RelationshipRoot.append(VariantRelationship)
 
     DocumentTree = ElementTree.ElementTree(RelationshipRoot)
     DocumentTree.write(RelationshipsPath, encoding="utf-8", xml_declaration=True)
