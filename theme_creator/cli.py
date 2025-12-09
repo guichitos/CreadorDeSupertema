@@ -18,6 +18,8 @@
 # standard library. Python provides them # to simplify the reading, interpretation, and validation of command-line# arguments.
 
 import argparse
+import os
+import shutil
 from pathlib import Path
 from typing import Iterable, Sequence
 
@@ -59,9 +61,34 @@ def BuildSuperThemeFromArguments(Arguments: argparse.Namespace) -> Path:
     return BuildSuperTheme(BaseThemePath, [Path(PathValue) for PathValue in VariantPaths], OutputPath, VariantNames)
 
 
+def _ResolveTemplatesDirectory() -> Path:
+    AppData = os.environ.get("APPDATA") or os.environ.get("appdata")
+    if not AppData:
+        raise EnvironmentError("APPDATA environment variable not set; cannot locate the templates directory.")
+
+    AppDataPath = Path(AppData)
+    PartsLower = {Part.lower() for Part in AppDataPath.parts}
+    if "roaming" not in PartsLower:
+        AppDataPath = AppDataPath / "Roaming"
+
+    return AppDataPath / "Microsoft" / "Templates" / "Document Themes"
+
+
+def CopyThemeToTemplates(ThemePath: Path) -> Path:
+    TemplatesDirectory = _ResolveTemplatesDirectory()
+    TemplatesDirectory.mkdir(parents=True, exist_ok=True)
+
+    Destination = TemplatesDirectory / ThemePath.name
+    shutil.copy2(ThemePath, Destination)
+    print(f"Tema copiado en la carpeta de plantillas: {Destination}")
+    return Destination
+
+
 def RunTkinterInterface() -> Path:
     BaseThemePath, VariantThemePaths, OutputPath = PromptThemeSelection()
-    return BuildSuperTheme(BaseThemePath, VariantThemePaths, OutputPath)
+    ResultPath = BuildSuperTheme(BaseThemePath, VariantThemePaths, OutputPath)
+    CopyThemeToTemplates(ResultPath)
+    return ResultPath
 
 
 def RunCommandLineInterface() -> Path:
@@ -70,5 +97,8 @@ def RunCommandLineInterface() -> Path:
     VariantCandidates = ParsedArguments.Variants or ([] if ParsedArguments.VariantTheme is None else [ParsedArguments.VariantTheme])
 
     if ParsedArguments.BaseTheme and OutputCandidate and VariantCandidates:
-        return BuildSuperThemeFromArguments(ParsedArguments)
+        ResultPath = BuildSuperThemeFromArguments(ParsedArguments)
+        CopyThemeToTemplates(ResultPath)
+        return ResultPath
+
     return RunTkinterInterface()
