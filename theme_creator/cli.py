@@ -20,6 +20,7 @@
 import argparse
 import os
 import shutil
+import sys
 from pathlib import Path
 from typing import Iterable, Sequence
 
@@ -85,7 +86,8 @@ def CopyThemeToTemplates(ThemePath: Path) -> Path:
 
 
 def RunTkinterInterface() -> Path:
-    BaseThemePath, VariantThemePaths, OutputPath = PromptThemeSelection()
+    ThemesDirectory = Path(sys.argv[0]).resolve().parent
+    BaseThemePath, VariantThemePaths, OutputPath = PromptThemeSelection(ThemesDirectory)
     ResultPath = BuildSuperTheme(BaseThemePath, VariantThemePaths, OutputPath)
     CopyThemeToTemplates(ResultPath)
     return ResultPath
