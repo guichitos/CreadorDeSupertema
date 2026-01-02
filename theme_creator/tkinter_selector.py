@@ -6,7 +6,7 @@
 
 
 from pathlib import Path
-from tkinter import StringVar, Tk, messagebox, ttk
+from tkinter import END, SINGLE, Listbox, StringVar, Tk, messagebox, ttk
 
 
 def _ShowMissingThemesError(ThemesDirectory: Path) -> None:
@@ -33,14 +33,22 @@ def _CreateSelectorWindow(ThemePaths: list[Path]) -> tuple[Path, list[Path], Pat
     SelectedBase = StringVar(value=ThemePaths[0].name)
     OutputName = StringVar(value=f"super_{ThemePaths[0].stem}.thmx")
 
-    def _OnSelectionChange(*_: str) -> None:
-        SelectedName = SelectedBase.get()
+    ttk.Label(Root, text="Selecciona el tema base").pack(padx=10, pady=(10, 4))
+    ThemeList = Listbox(Root, selectmode=SINGLE, height=min(10, len(ThemePaths)))
+    for PathItem in ThemePaths:
+        ThemeList.insert(END, PathItem.name)
+    ThemeList.selection_set(0)
+    ThemeList.pack(padx=10, pady=(0, 8), fill="both")
+
+    def _OnSelectionChange(_: object) -> None:
+        Selection = ThemeList.curselection()
+        if not Selection:
+            return
+        SelectedName = ThemeList.get(Selection[0])
+        SelectedBase.set(SelectedName)
         OutputName.set(f"super_{Path(SelectedName).stem}.thmx")
 
-    SelectedBase.trace_add("write", _OnSelectionChange)
-
-    ttk.Label(Root, text="Selecciona el tema base").pack(padx=10, pady=(10, 4))
-    ttk.Combobox(Root, textvariable=SelectedBase, values=[PathItem.name for PathItem in ThemePaths], state="readonly").pack(padx=10, pady=(0, 8), fill="x")
+    ThemeList.bind("<<ListboxSelect>>", _OnSelectionChange)
 
     VariantsLabel = ttk.Label(
         Root,
@@ -56,12 +64,13 @@ def _CreateSelectorWindow(ThemePaths: list[Path]) -> tuple[Path, list[Path], Pat
     SelectionResult: dict[str, Path | list[Path] | None] = {"Base": None, "Variants": None, "Output": None}
 
     def _ConfirmSelection() -> None:
-        BaseName = SelectedBase.get()
-        OutputValue = OutputName.get().strip()
-
-        if not BaseName:
+        Selection = ThemeList.curselection()
+        if not Selection:
             messagebox.showerror("Selección inválida", "Debes seleccionar un tema base.")
             return
+
+        BaseName = ThemeList.get(Selection[0])
+        OutputValue = OutputName.get().strip()
 
         if not OutputValue:
             messagebox.showerror("Salida inválida", "Debes ingresar un nombre de archivo de salida.")
