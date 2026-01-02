@@ -9,13 +9,23 @@ from pathlib import Path
 from tkinter import StringVar, Tk, messagebox, ttk
 
 
-def _EnsureThemesExist(ThemePaths: list[Path]) -> None:
-    if len(ThemePaths) < 2:
-        raise ValueError("Se requieren al menos dos temas .thmx en la carpeta para crear un super tema.")
+def _ShowMissingThemesError(ThemesDirectory: Path) -> None:
+    DialogRoot = Tk()
+    DialogRoot.withdraw()
+    messagebox.showerror(
+        "Temas insuficientes",
+        (
+            "Se requieren al menos dos archivos .thmx en la misma carpeta del ejecutable.\n\n"
+            "Copia el tema base y al menos una variante en:\n"
+            f"{ThemesDirectory}"
+        ),
+    )
+    DialogRoot.destroy()
 
 
 def _CreateSelectorWindow(ThemePaths: list[Path]) -> tuple[Path, list[Path], Path]:
-    _EnsureThemesExist(ThemePaths)
+    if len(ThemePaths) < 2:
+        raise ValueError("Se requieren al menos dos temas .thmx en la carpeta para crear un super tema.")
 
     Root = Tk()
     Root.title("Creador de Super Tema")
@@ -78,4 +88,7 @@ def _CreateSelectorWindow(ThemePaths: list[Path]) -> tuple[Path, list[Path], Pat
 
 def PromptThemeSelection(ThemesDirectory: Path) -> tuple[Path, list[Path], Path]:
     ThemePaths = sorted(ThemesDirectory.glob("*.thmx"))
+    if len(ThemePaths) < 2:
+        _ShowMissingThemesError(ThemesDirectory)
+        raise SystemExit(1)
     return _CreateSelectorWindow(ThemePaths)
