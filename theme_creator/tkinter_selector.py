@@ -6,65 +6,98 @@
 
 
 from pathlib import Path
-from tkinter import Tk, filedialog
+from tkinter import END, SINGLE, Listbox, StringVar, Tk, messagebox, ttk
 
 
-def _CreateHiddenRoot() -> Tk:
-    # Create a Tk root window that stays hidden, needed only to host dialogs.
+def _ShowMissingThemesError(ThemesDirectory: Path) -> None:
     DialogRoot = Tk()
-    DialogRoot.withdraw()   # Prevent the main Tk window from appearing.
-    DialogRoot.update()     # Ensure the window system initializes correctly.
-    return DialogRoot
-
-
-def _RequireSelectedPath(SelectedPath: str, ErrorMessage: str) -> Path:
-    # Convert the selected path to a Path object or raise if nothing was chosen.
-    if not SelectedPath:
-        raise ValueError(ErrorMessage)
-    return Path(SelectedPath)
-
-
-def RequestBaseThemePath() -> Path:
-    # Open a dialog prompting the user to select the base theme (.thmx).
-    DialogRoot = _CreateHiddenRoot()
-    SelectedBase = filedialog.askopenfilename(
-        title="Select the primary theme archive",
-        filetypes=[("Office Theme", "*.thmx"), ("All Files", "*.*")],
-    )
-    DialogRoot.destroy()
-    return _RequireSelectedPath(SelectedBase, "Primary theme selection was cancelled.")
-
-
-def RequestVariantThemePaths() -> list[Path]:
-    # Open a dialog prompting the user to select one or more variant themes (.thmx).
-    DialogRoot = _CreateHiddenRoot()
-    SelectedVariants = filedialog.askopenfilenames(
-        title="Select one or more variant theme archives",
-        filetypes=[("Office Theme", "*.thmx"), ("All Files", "*.*")],
+    DialogRoot.withdraw()
+    messagebox.showerror(
+        "Temas insuficientes",
+        (
+            "Se requieren al menos dos archivos .thmx en la misma carpeta del ejecutable.\n\n"
+            "Copia el tema base y al menos una variante en:\n"
+            f"{ThemesDirectory}"
+        ),
     )
     DialogRoot.destroy()
 
-    VariantPaths = [Path(VariantPath) for VariantPath in SelectedVariants if VariantPath]
-    if not VariantPaths:
-        raise ValueError("Variant theme selection was cancelled.")
-    return VariantPaths
 
+def _CreateSelectorWindow(ThemePaths: list[Path]) -> tuple[Path, list[Path], Path]:
+    if len(ThemePaths) < 2:
+        raise ValueError("Se requieren al menos dos temas .thmx en la carpeta para crear un super tema.")
 
-def RequestOutputPath() -> Path:
-    # Open a save dialog prompting the user to specify the output .thmx file.
-    DialogRoot = _CreateHiddenRoot()
-    SelectedOutput = filedialog.asksaveasfilename(
-        title="Choose a destination for the super theme",
-        defaultextension=".thmx",
-        filetypes=[("Office Theme", "*.thmx"), ("All Files", "*.*")],
+    Root = Tk()
+    Root.title("Creador de Super Tema")
+
+    SelectedBase = StringVar(value=ThemePaths[0].name)
+    OutputName = StringVar(value=f"super_{ThemePaths[0].stem}.thmx")
+
+    ttk.Label(Root, text="Selecciona el tema base").pack(padx=10, pady=(10, 4))
+    ThemeList = Listbox(Root, selectmode=SINGLE, height=min(10, len(ThemePaths)))
+    for PathItem in ThemePaths:
+        ThemeList.insert(END, PathItem.name)
+    ThemeList.selection_set(0)
+    ThemeList.pack(padx=10, pady=(0, 8), fill="both")
+
+    def _OnSelectionChange(_: object) -> None:
+        Selection = ThemeList.curselection()
+        if not Selection:
+            return
+        SelectedName = ThemeList.get(Selection[0])
+        SelectedBase.set(SelectedName)
+        OutputName.set(f"super_{Path(SelectedName).stem}.thmx")
+
+    ThemeList.bind("<<ListboxSelect>>", _OnSelectionChange)
+
+    VariantsLabel = ttk.Label(
+        Root,
+        text="Los demás temas de la carpeta se usarán como variantes.",
+        foreground="#444444",
+        wraplength=320,
     )
-    DialogRoot.destroy()
-    return _RequireSelectedPath(SelectedOutput, "Output path selection was cancelled.")
+    VariantsLabel.pack(padx=10, pady=(0, 8))
+
+    ttk.Label(Root, text="Nombre del archivo de salida").pack(padx=10, pady=(0, 4))
+    ttk.Entry(Root, textvariable=OutputName).pack(padx=10, pady=(0, 12), fill="x")
+
+    SelectionResult: dict[str, Path | list[Path] | None] = {"Base": None, "Variants": None, "Output": None}
+
+    def _ConfirmSelection() -> None:
+        Selection = ThemeList.curselection()
+        if not Selection:
+            messagebox.showerror("Selección inválida", "Debes seleccionar un tema base.")
+            return
+
+        BaseName = ThemeList.get(Selection[0])
+        OutputValue = OutputName.get().strip()
+
+        if not OutputValue:
+            messagebox.showerror("Salida inválida", "Debes ingresar un nombre de archivo de salida.")
+            return
+
+        BaseTheme = next(PathItem for PathItem in ThemePaths if PathItem.name == BaseName)
+        VariantThemes = [PathItem for PathItem in ThemePaths if PathItem.name != BaseName]
+        OutputPath = BaseTheme.parent / (OutputValue if OutputValue.lower().endswith(".thmx") else f"{OutputValue}.thmx")
+
+        SelectionResult["Base"] = BaseTheme
+        SelectionResult["Variants"] = VariantThemes
+        SelectionResult["Output"] = OutputPath
+        Root.destroy()
+
+    ttk.Button(Root, text="Crear super tema", command=_ConfirmSelection).pack(padx=10, pady=(0, 12))
+
+    Root.mainloop()
+
+    if not SelectionResult["Base"] or not SelectionResult["Output"] or not SelectionResult["Variants"]:
+        raise ValueError("La selección de temas se canceló.")
+
+    return SelectionResult["Base"], list(SelectionResult["Variants"]), SelectionResult["Output"]
 
 
-def PromptThemeSelection() -> tuple[Path, list[Path], Path]:
-    # High-level helper: collect base theme, one or more variant themes, and output paths.
-    BaseThemePath = RequestBaseThemePath()
-    VariantThemePaths = RequestVariantThemePaths()
-    OutputPath = RequestOutputPath()
-    return BaseThemePath, VariantThemePaths, OutputPath
+def PromptThemeSelection(ThemesDirectory: Path) -> tuple[Path, list[Path], Path]:
+    ThemePaths = sorted(ThemesDirectory.glob("*.thmx"))
+    if len(ThemePaths) < 2:
+        _ShowMissingThemesError(ThemesDirectory)
+        raise SystemExit(1)
+    return _CreateSelectorWindow(ThemePaths)
