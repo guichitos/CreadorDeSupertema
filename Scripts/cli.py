@@ -87,7 +87,10 @@ def CopyThemeToTemplates(ThemePath: Path) -> Path:
 
 def RunTkinterInterface() -> Path:
     ThemesDirectory = Path(sys.argv[0]).resolve().parent
-    BaseThemePath, VariantThemePaths, OutputPath = PromptThemeSelection(ThemesDirectory)
+    Selection = PromptThemeSelection(ThemesDirectory)
+    if Selection is None:
+        sys.exit(0)
+    BaseThemePath, VariantThemePaths, OutputPath = Selection
     ResultPath = BuildSuperTheme(BaseThemePath, VariantThemePaths, OutputPath)
     CopyThemeToTemplates(ResultPath)
     return ResultPath
