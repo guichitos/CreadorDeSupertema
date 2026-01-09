@@ -23,7 +23,7 @@ def _ShowMissingThemesError(ThemesDirectory: Path) -> None:
     DialogRoot.destroy()
 
 
-def _CreateSelectorWindow(ThemePaths: list[Path]) -> tuple[Path, list[Path], Path]:
+def _CreateSelectorWindow(ThemePaths: list[Path]) -> tuple[Path, list[Path], Path] | None:
     if len(ThemePaths) < 2:
         raise ValueError("Se requieren al menos dos temas .thmx en la carpeta para crear un super tema.")
 
@@ -62,6 +62,12 @@ def _CreateSelectorWindow(ThemePaths: list[Path]) -> tuple[Path, list[Path], Pat
     ttk.Entry(Root, textvariable=OutputName).pack(padx=10, pady=(0, 12), fill="x")
 
     SelectionResult: dict[str, Path | list[Path] | None] = {"Base": None, "Variants": None, "Output": None}
+    WasCancelled = False
+
+    def _OnClose() -> None:
+        nonlocal WasCancelled
+        WasCancelled = True
+        Root.destroy()
 
     def _ConfirmSelection() -> None:
         Selection = ThemeList.curselection()
@@ -87,15 +93,16 @@ def _CreateSelectorWindow(ThemePaths: list[Path]) -> tuple[Path, list[Path], Pat
 
     ttk.Button(Root, text="Crear super tema", command=_ConfirmSelection).pack(padx=10, pady=(0, 12))
 
+    Root.protocol("WM_DELETE_WINDOW", _OnClose)
     Root.mainloop()
 
-    if not SelectionResult["Base"] or not SelectionResult["Output"] or not SelectionResult["Variants"]:
-        raise ValueError("La selección de temas se canceló.")
+    if WasCancelled:
+        return None
 
     return SelectionResult["Base"], list(SelectionResult["Variants"]), SelectionResult["Output"]
 
 
-def PromptThemeSelection(ThemesDirectory: Path) -> tuple[Path, list[Path], Path]:
+def PromptThemeSelection(ThemesDirectory: Path) -> tuple[Path, list[Path], Path] | None:
     ThemePaths = sorted(ThemesDirectory.glob("*.thmx"))
     if len(ThemePaths) < 2:
         _ShowMissingThemesError(ThemesDirectory)
