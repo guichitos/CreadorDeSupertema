@@ -85,25 +85,27 @@ def CopyThemeToTemplates(ThemePath: Path) -> Path:
     return Destination
 
 
-def RunTkinterInterface() -> Path:
+def RunTkinterInterface(InstallTheme: bool = True) -> Path:
     ThemesDirectory = Path(sys.argv[0]).resolve().parent
     Selection = PromptThemeSelection(ThemesDirectory)
     if Selection is None:
         sys.exit(0)
     BaseThemePath, VariantThemePaths, OutputPath = Selection
     ResultPath = BuildSuperTheme(BaseThemePath, VariantThemePaths, OutputPath)
-    CopyThemeToTemplates(ResultPath)
+    if InstallTheme:
+        CopyThemeToTemplates(ResultPath)
     return ResultPath
 
 
-def RunCommandLineInterface() -> Path:
+def RunCommandLineInterface(InstallTheme: bool = True) -> Path:
     ParsedArguments = ParseArguments()
     OutputCandidate = ParsedArguments.OutputPathFlag or ParsedArguments.OutputPath
     VariantCandidates = ParsedArguments.Variants or ([] if ParsedArguments.VariantTheme is None else [ParsedArguments.VariantTheme])
 
     if ParsedArguments.BaseTheme and OutputCandidate and VariantCandidates:
         ResultPath = BuildSuperThemeFromArguments(ParsedArguments)
-        CopyThemeToTemplates(ResultPath)
+        if InstallTheme:
+            CopyThemeToTemplates(ResultPath)
         return ResultPath
 
-    return RunTkinterInterface()
+    return RunTkinterInterface(InstallTheme=InstallTheme)
