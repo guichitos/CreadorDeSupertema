@@ -5,6 +5,7 @@
 # It opens three dialogs to select: base theme, one or more variant themes, and output path.
 
 
+from datetime import datetime, timezone
 from pathlib import Path
 from tkinter import END, SINGLE, Listbox, StringVar, Tk, messagebox, ttk
 
@@ -23,6 +24,11 @@ def _ShowMissingThemesError(ThemesDirectory: Path) -> None:
     DialogRoot.destroy()
 
 
+def _BuildOutputName() -> str:
+    Timestamp = datetime.now(timezone.utc).strftime("%Y.%m.%d.%H%M")
+    return f"SuperTheme - {Timestamp}.thmx"
+
+
 def _CreateSelectorWindow(ThemePaths: list[Path]) -> tuple[Path, list[Path], Path] | None:
     if len(ThemePaths) < 2:
         raise ValueError("Se requieren al menos dos temas .thmx en la carpeta para crear un super tema.")
@@ -31,7 +37,7 @@ def _CreateSelectorWindow(ThemePaths: list[Path]) -> tuple[Path, list[Path], Pat
     Root.title("Creador de Super Tema")
 
     SelectedBase = StringVar(value=ThemePaths[0].name)
-    OutputName = StringVar(value=f"super_{ThemePaths[0].stem}.thmx")
+    OutputName = StringVar(value=_BuildOutputName())
 
     ttk.Label(Root, text="Selecciona el tema base").pack(padx=10, pady=(10, 4))
     ThemeList = Listbox(Root, selectmode=SINGLE, height=min(10, len(ThemePaths)))
@@ -46,7 +52,6 @@ def _CreateSelectorWindow(ThemePaths: list[Path]) -> tuple[Path, list[Path], Pat
             return
         SelectedName = ThemeList.get(Selection[0])
         SelectedBase.set(SelectedName)
-        OutputName.set(f"super_{Path(SelectedName).stem}.thmx")
 
     ThemeList.bind("<<ListboxSelect>>", _OnSelectionChange)
 
@@ -59,10 +64,18 @@ def _CreateSelectorWindow(ThemePaths: list[Path]) -> tuple[Path, list[Path], Pat
     VariantsLabel.pack(padx=10, pady=(0, 8))
 
     ttk.Label(Root, text="Nombre del archivo de salida").pack(padx=10, pady=(0, 4))
-    ttk.Entry(Root, textvariable=OutputName).pack(padx=10, pady=(0, 12), fill="x")
+    ttk.Entry(Root, textvariable=OutputName, state="normal").pack(padx=10, pady=(0, 12), fill="x")
 
     SelectionResult: dict[str, Path | list[Path] | None] = {"Base": None, "Variants": None, "Output": None}
     WasCancelled = False
+
+    def _IsValidOutputName(Name: str) -> bool:
+        InvalidCharacters = set('<>:"/\\|?*')
+        if any(Character in InvalidCharacters for Character in Name):
+            return False
+        if any(Separator in Name for Separator in ("/", "\\")):
+            return False
+        return True
 
     def _OnClose() -> None:
         nonlocal WasCancelled
@@ -80,6 +93,12 @@ def _CreateSelectorWindow(ThemePaths: list[Path]) -> tuple[Path, list[Path], Pat
 
         if not OutputValue:
             messagebox.showerror("Salida inválida", "Debes ingresar un nombre de archivo de salida.")
+            return
+        if not _IsValidOutputName(OutputValue):
+            messagebox.showerror(
+                "Salida inválida",
+                "El nombre del archivo contiene caracteres inválidos.",
+            )
             return
 
         BaseTheme = next(PathItem for PathItem in ThemePaths if PathItem.name == BaseName)
