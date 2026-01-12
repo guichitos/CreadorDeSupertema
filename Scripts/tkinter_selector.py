@@ -81,7 +81,8 @@ def _CreateSelectorWindow(ThemePaths: list[Path]) -> tuple[Path, list[Path], Pat
             return
 
         BaseName = ThemeList.get(Selection[0])
-        OutputValue = OutputName.get().strip()
+        OutputValue = _BuildOutputName()
+        OutputName.set(OutputValue)
 
         if not OutputValue:
             messagebox.showerror("Salida inválida", "Debes ingresar un nombre de archivo de salida.")
