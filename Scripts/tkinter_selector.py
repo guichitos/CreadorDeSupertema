@@ -69,6 +69,14 @@ def _CreateSelectorWindow(ThemePaths: list[Path]) -> tuple[Path, list[Path], Pat
     SelectionResult: dict[str, Path | list[Path] | None] = {"Base": None, "Variants": None, "Output": None}
     WasCancelled = False
 
+    def _IsValidOutputName(Name: str) -> bool:
+        InvalidCharacters = set('<>:"/\\|?*')
+        if any(Character in InvalidCharacters for Character in Name):
+            return False
+        if any(Separator in Name for Separator in ("/", "\\")):
+            return False
+        return True
+
     def _OnClose() -> None:
         nonlocal WasCancelled
         WasCancelled = True
@@ -86,6 +94,12 @@ def _CreateSelectorWindow(ThemePaths: list[Path]) -> tuple[Path, list[Path], Pat
 
         if not OutputValue:
             messagebox.showerror("Salida inválida", "Debes ingresar un nombre de archivo de salida.")
+            return
+        if not _IsValidOutputName(OutputValue):
+            messagebox.showerror(
+                "Salida inválida",
+                "El nombre del archivo contiene caracteres inválidos.",
+            )
             return
 
         BaseTheme = next(PathItem for PathItem in ThemePaths if PathItem.name == BaseName)
