@@ -64,7 +64,7 @@ def _CreateSelectorWindow(ThemePaths: list[Path]) -> tuple[Path, list[Path], Pat
     VariantsLabel.pack(padx=10, pady=(0, 8))
 
     ttk.Label(Root, text="Nombre del archivo de salida").pack(padx=10, pady=(0, 4))
-    ttk.Entry(Root, textvariable=OutputName, state="readonly").pack(padx=10, pady=(0, 12), fill="x")
+    ttk.Entry(Root, textvariable=OutputName, state="normal").pack(padx=10, pady=(0, 12), fill="x")
 
     SelectionResult: dict[str, Path | list[Path] | None] = {"Base": None, "Variants": None, "Output": None}
     WasCancelled = False
